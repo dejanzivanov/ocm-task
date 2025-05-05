@@ -20,3 +20,7 @@ Route::get('/', function () {
 Auth::routes();
 
 Route::get('/home', [App\Http\Controllers\HomeController::class, 'index'])->name('home');
+
+Route::post('/news/settings', [App\Http\Controllers\NewsController::class, 'settings'])->name('news.settings')->middleware('auth');
+Route::post('/news/api-save', [App\Http\Controllers\NewsController::class, 'apiSave'])->name('news.apiSave')->middleware('auth');
+Route::post('/news/api-delete', [App\Http\Controllers\NewsController::class,'apiDelete'])->name('news.apiDelete')->middleware('auth');
