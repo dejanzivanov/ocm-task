@@ -187,17 +187,27 @@ class NewsController extends Controller
 
     public function loadMore(Request $request)
     {
-        // subsequent pages — return JSON paginator
         $page    = $request->get('page', 1);
-        $perPage = 6;
+    $perPage = $request->get('per_page', 6);
+    $search  = $request->input('search');
 
-        $news = News::orderBy('published_at','desc')->paginate($perPage, ['*'], 'page', $page);
+    $query = News::orderBy('published_at', 'desc');
 
-        // return the JSON shape your component expects
-        return response()->json([
-            'data' => $news->items(),
-            'current_page' => $news->currentPage(),
-            'last_page'    => $news->lastPage(),
-        ]);
+    if ($search) {
+        $query->where(function($q) use ($search) {
+            $q->where('title', 'like', "%{$search}%")
+              ->orWhere('description', 'like', "%{$search}%")
+              ->orWhere('source_name', 'like', "%{$search}%")
+              ->orWhere('author', 'like', "%{$search}%");
+        });
+    }
+
+    $news = $query->paginate($perPage, ['*'], 'page', $page);
+
+    return response()->json([
+        'data'         => $news->items(),
+        'current_page' => $news->currentPage(),
+        'last_page'    => $news->lastPage(),
+    ]);
     }
 }

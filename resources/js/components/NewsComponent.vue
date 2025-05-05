@@ -1,5 +1,16 @@
 <template>
   <div class="news-container">
+
+    <!-- 1) Search input up here -->
+    <div class="mb-4">
+      <input
+        v-model="search"
+        type="text"
+        class="form-control form-control-lg"
+        placeholder="Search articles…"
+      />
+    </div>
+
     <div class="row">
       <div
         v-for="article in articles"
@@ -31,10 +42,10 @@
       </div>
     </div>
 
-    <!-- Sentinel for infinite scroll -->
+    <!-- infinite‐scroll sentinel -->
     <div ref="scrollObserver"></div>
 
-    <!-- Loading spinner -->
+    <!-- loading spinner -->
     <div v-if="loading" class="text-center py-3">
       <span class="spinner-border" role="status"></span>
     </div>
@@ -42,10 +53,12 @@
 </template>
 
 <script>
-import axios from 'axios';
+import axios from 'axios'
+import debounce from 'lodash/debounce'
 
 export default {
   name: 'NewsComponent',
+
   data() {
     return {
       articles: [],
@@ -54,76 +67,91 @@ export default {
       loading: false,
       finished: false,
       observer: null,
-    };
+
+      // 2) track the search term
+      search: '',
+    }
   },
+
+  watch: {
+    // 3) whenever `search` changes, reset and re-fetch
+    search: debounce(function (newTerm) {
+      this.page     = 1
+      this.articles = []
+      this.finished = false
+      this.fetchNews()
+    }, 300)   // debounce so we don’t hammer the server on every keystroke
+  },
+
   methods: {
     async fetchNews() {
-      // avoid duplicate or post-completion calls
-      if (this.loading || this.finished) return;
-      this.loading = true;
+      if (this.loading || this.finished) return
+      this.loading = true
 
       try {
+        // post to your dedicated load-more route, including search
         const { data } = await axios.post('/news/load-more', {
-          page: this.page,
+          page:     this.page,
           per_page: this.perPage,
-        });
+          search:   this.search.trim() || null,
+        })
 
-        // append new items
+        // first page replaces, subsequent pages append
         if (data.data.length) {
-          this.articles.push(...data.data);
-          this.page++;
+          if (this.page === 1) this.articles = data.data
+          else                this.articles.push(...data.data)
+          this.page++
         }
 
-        // if we've reached the last page, stop observing
+        // stop when we hit last_page
         if (data.current_page >= data.last_page) {
-          this.finished = true;
-          this.disconnectObserver();
+          this.finished = true
+          this.disconnectObserver()
         }
-      } catch (err) {
-        console.error('Failed to load news', err);
+      } catch (e) {
+        console.error('Failed to load news', e)
       } finally {
-        this.loading = false;
+        this.loading = false
       }
     },
 
     truncate(text, length) {
-      if (!text) return '';
+      if (!text) return ''
       return text.length > length
         ? text.slice(0, length) + '…'
-        : text;
+        : text
     },
 
     initObserver() {
-      const options = { root: null, rootMargin: '0px', threshold: 0.1 };
-      this.observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            this.fetchNews();
-          }
-        });
-      }, options);
-
-      if (this.$refs.scrollObserver) {
-        this.observer.observe(this.$refs.scrollObserver);
-      }
+      this.observer = new IntersectionObserver(
+        entries => {
+          entries.forEach(entry => {
+            if (entry.isIntersecting) {
+              this.fetchNews()
+            }
+          })
+        },
+        { root: null, rootMargin: '0px', threshold: 0.1 }
+      )
+      this.observer.observe(this.$refs.scrollObserver)
     },
 
     disconnectObserver() {
-      if (this.observer && this.$refs.scrollObserver) {
-        this.observer.unobserve(this.$refs.scrollObserver);
+      if (this.observer) {
+        this.observer.unobserve(this.$refs.scrollObserver)
       }
     }
   },
 
   mounted() {
-    this.fetchNews();
-    this.initObserver();
+    this.fetchNews()
+    this.initObserver()
   },
 
   beforeDestroy() {
-    this.disconnectObserver();
+    this.disconnectObserver()
   }
-};
+}
 </script>
 
 <style scoped>
