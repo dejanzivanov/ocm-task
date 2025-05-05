@@ -12,13 +12,21 @@
                 <a
                   :class="['btn btn-primary', !exists && 'disabled']"
                   :href="exists ? '/news' : '#'"
-                  @click.prevent="exists && visitNews"
+                  @click.prevent="exists && visitNews()"
                 >Visit News Page</a>
                 <button
-                  class="btn btn-success"
-                  :disabled="!exists"
-                  @click="exists && createNews"
-                >Create News</button>
+                    class="btn btn-success"
+                    :disabled="!exists || creating"
+                    @click="exists && generateNews()"
+                    >
+                    <span v-if="creating">
+                        <span class="spinner-border spinner-border-sm"></span>
+                        Create News{{ ellipsis }}
+                    </span>
+                    <span v-else>
+                        Create News
+                    </span>
+                </button>
                 <button
                   class="btn btn-danger"
                   :disabled="!exists"
@@ -81,13 +89,19 @@
       return {
         apiKeyInput: '',   // only for the input when no key saved
         exists: false,     // true once backend confirms a key is stored
+        creating: false,
+        dotCount: 0,          // for cycling “.” → “..” → “...”
+        dotTimer: null,
       }
     },
     computed: {
       // fixed 20-star mask
       starMask() {
         return '*'.repeat(20)
-      }
+      },
+      ellipsis() {
+      return '.'.repeat(this.dotCount)
+    }
     },
     methods: {
       // check if a key exists (no key value returned)
@@ -114,6 +128,7 @@
   
       createNews() {
         // your import logic…
+        console.log('Creating news...')
       },
   
       deleteAllNews() {
@@ -173,6 +188,32 @@
           Swal.fire('Error','Failed to delete API key','error')
         }
       },
+      async generateNews() {
+      this.startDots()
+      this.creating = true
+
+      try {
+        const res = await axios.post('/news/generate')
+        await Swal.fire('Done','News have been created successfully','success')
+      } catch (err) {
+        Swal.fire('Error','Failed to create news','error')
+      } finally {
+        this.stopDots()
+        this.creating = false
+      }
+    },
+
+    // helpers for ellipsis animation
+    startDots() {
+      this.dotCount = 0
+      this.dotTimer = setInterval(() => {
+        this.dotCount = (this.dotCount + 1) % 4  // cycles 0→1→2→3→0
+      }, 400)
+    },
+    stopDots() {
+        clearInterval(this.dotTimer)
+        this.dotCount = 0
+        },
     },
     mounted() {
       this.checkApiKey()

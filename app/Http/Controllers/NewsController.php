@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
+use App\Models\News;
 
 class NewsController extends Controller
 {
@@ -91,5 +93,111 @@ class NewsController extends Controller
     {
         DB::table('settings')->truncate();
         return response()->json(['message'=>'API key removed']);
+    }
+
+    // public function generate(Request $request)
+    // {
+    //     dd($request->all());   
+    // }
+    public function generate(Request $request)
+    {
+        // 1) get stored API key
+        $apiKey = DB::table('settings')->value('api_key');
+        if (! $apiKey) {
+            return response()->json([
+                'error' => 'No API key configured.'
+            ], 422);
+        }
+
+        // 2) build NewsAPI query
+        $from = now()->subMonth()->toDateString();
+        $params = [
+            'q'       => 'tesla',             // topic
+            'from'    => $from,               // last month
+            'sortBy'  => 'publishedAt',       // newest first
+            'pageSize'=> 20,                  // fetch up to 20 articles
+            'apiKey'  => $apiKey,
+        ];
+
+        // 3) call NewsAPI
+        try {
+            $response = Http::get('https://newsapi.org/v2/everything', $params);
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => 'Unable to reach NewsAPI. Please try again later.'
+            ], 500);
+        }
+
+        if ($response->status() === 401) {
+            return response()->json([
+                'error' => 'Invalid API key.'
+            ], 401);
+        }
+        if ($response->failed()) {
+            return response()->json([
+                'error' => $response->json('message', 'Unknown error')
+            ], $response->status());
+        }
+
+        // 4) persist each article
+        $articles = $response->json('articles', []);
+        foreach ($articles as $a) {
+            DB::table('news')->insert([
+                'source_id'     => $a['source']['id'],
+                'source_name'   => $a['source']['name'],
+                'author'        => $a['author'],
+                'title'         => $a['title'],
+                'description'   => $a['description'],
+                'url'           => $a['url'],
+                'url_to_image'  => $a['urlToImage'],
+                'published_at'  => Carbon::parse($a['publishedAt'])->toDateTimeString(),
+                'content'       => $a['content'],
+                'created_at'    => now(),
+                'updated_at'    => now(),
+            ]);
+        }
+
+        // 5) return success
+        return response()->json([
+            'message' => 'News generated successfully.',
+            'count'   => count($articles),
+        ]);
+    }
+
+    public function index()
+    {
+        $news = News::orderBy('published_at','desc')
+                    ->paginate(6);
+        return view('news.index', compact('news'));
+    }
+
+    /**
+     * Display a single news article.
+     */
+    public function show($id)
+    {
+        $article = DB::table('news')->find($id);
+
+        if (! $article) {
+            abort(404);
+        }
+
+        return view('news.show', ['news' => $article]);
+    }
+
+    public function loadMore(Request $request)
+    {
+        // subsequent pages — return JSON paginator
+        $page    = $request->get('page', 1);
+        $perPage = 6;
+
+        $news = News::orderBy('published_at','desc')->paginate($perPage, ['*'], 'page', $page);
+
+        // return the JSON shape your component expects
+        return response()->json([
+            'data' => $news->items(),
+            'current_page' => $news->currentPage(),
+            'last_page'    => $news->lastPage(),
+        ]);
     }
 }
