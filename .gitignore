@@ -15,3 +15,4 @@ yarn-error.log
 /.vscode
 instructions.txt
 public/js/app.js
+storage/*

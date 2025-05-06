@@ -182,6 +182,8 @@ class NewsController extends Controller
             abort(404);
         }
 
+        // dd($article);
+
         return view('news.show', ['news' => $article]);
     }
 
