@@ -95,10 +95,6 @@ class NewsController extends Controller
         return response()->json(['message'=>'API key removed']);
     }
 
-    // public function generate(Request $request)
-    // {
-    //     dd($request->all());   
-    // }
     public function generate(Request $request)
     {
         // 1) get stored API key
