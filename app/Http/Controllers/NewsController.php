@@ -44,14 +44,17 @@ class NewsController extends Controller
         $apiKey = $request->input('api_key');
 
         // 2) Test the key with a minimal NewsAPI call
-        try {
+        try
+        {
             $response = Http::withHeaders([
                 'X-Api-Key' => $apiKey,
             ])->get('https://newsapi.org/v2/top-headlines', [
                 'pageSize' => 1,
                 'country'  => 'us',
             ]);
-        } catch (\Exception $e) {
+        } 
+        catch (\Exception $e)
+         {
             // Network or DNS failure
             return response()->json([
                 'error' => 'Unable to reach NewsAPI service. Please try again later.'
@@ -178,34 +181,32 @@ class NewsController extends Controller
             abort(404);
         }
 
-        // dd($article);
-
         return view('news.show', ['news' => $article]);
     }
 
     public function loadMore(Request $request)
     {
         $page    = $request->get('page', 1);
-    $perPage = $request->get('per_page', 6);
-    $search  = $request->input('search');
+        $perPage = $request->get('per_page', 6);
+        $search  = $request->input('search');
 
-    $query = News::orderBy('published_at', 'desc');
+        $query = News::orderBy('published_at', 'desc');
 
-    if ($search) {
-        $query->where(function($q) use ($search) {
-            $q->where('title', 'like', "%{$search}%")
-              ->orWhere('description', 'like', "%{$search}%")
-              ->orWhere('source_name', 'like', "%{$search}%")
-              ->orWhere('author', 'like', "%{$search}%");
-        });
-    }
+        if ($search) {
+            $query->where(function($q) use ($search) {
+                $q->where('title', 'like', "%{$search}%")
+                ->orWhere('description', 'like', "%{$search}%")
+                ->orWhere('source_name', 'like', "%{$search}%")
+                ->orWhere('author', 'like', "%{$search}%");
+            });
+        }
 
-    $news = $query->paginate($perPage, ['*'], 'page', $page);
+        $news = $query->paginate($perPage, ['*'], 'page', $page);
 
-    return response()->json([
-        'data'         => $news->items(),
-        'current_page' => $news->currentPage(),
-        'last_page'    => $news->lastPage(),
-    ]);
+        return response()->json([
+            'data'         => $news->items(),
+            'current_page' => $news->currentPage(),
+            'last_page'    => $news->lastPage(),
+        ]);
     }
 }
