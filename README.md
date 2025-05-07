@@ -2,6 +2,8 @@
 
 A Laravel 8 & Vue 2.7.1 project for OCM Task management.
 
+Hosted at: https://ocm.dejanzivanov.com
+
 ## Prerequisites
 
 - **PHP**: ^7.4
