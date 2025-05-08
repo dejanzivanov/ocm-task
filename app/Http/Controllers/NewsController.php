@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use App\Models\News;
+use Illuminate\Support\Str;
+
 
 class NewsController extends Controller
 {
@@ -140,26 +142,13 @@ class NewsController extends Controller
 
         // 4) persist each article
         $articles = $response->json('articles', []);
-        foreach ($articles as $a) {
-            DB::table('news')->insert([
-                'source_id'     => $a['source']['id'],
-                'source_name'   => $a['source']['name'],
-                'author'        => $a['author'],
-                'title'         => $a['title'],
-                'description'   => $a['description'],
-                'url'           => $a['url'],
-                'url_to_image'  => $a['urlToImage'],
-                'published_at'  => Carbon::parse($a['publishedAt'])->toDateTimeString(),
-                'content'       => $a['content'],
-                'created_at'    => now(),
-                'updated_at'    => now(),
-            ]);
-        }
+        $imported = $this->validateAndPersistArticles($articles);
+
 
         // 5) return success
         return response()->json([
             'message' => 'News generated successfully.',
-            'count'   => count($articles),
+            'count'   => $imported,
         ]);
     }
 
@@ -208,5 +197,53 @@ class NewsController extends Controller
             'current_page' => $news->currentPage(),
             'last_page'    => $news->lastPage(),
         ]);
+    }
+
+    private function validateAndPersistArticles(array $articles): int
+    {
+        $rows = [];
+
+        foreach ($articles as $a) {
+            // — validate URL
+            $url = filter_var($a['url'] ?? null, FILTER_VALIDATE_URL);
+            if (! $url) {
+                continue;
+            }
+
+            // — sanitize text fields
+            $title       = Str::limit(strip_tags($a['title'] ?? ''), 255);
+            $description = strip_tags($a['description'] ?? '');
+            $content     = strip_tags($a['content'] ?? '');
+
+            // — prepare the row
+            $rows[] = [
+                'source_id'     => $a['source']['id'],
+                'source_name'   => $a['source']['name'],
+                'author'        => $a['author'],
+                'title'         => $title,
+                'description'   => $description,
+                'url'           => $url,
+                'url_to_image'  => filter_var($a['urlToImage'] ?? null, FILTER_VALIDATE_URL),
+                'published_at'  => Carbon::parse($a['publishedAt'])->toDateTimeString(),
+                'content'       => $content,
+                'created_at'    => now(),
+                'updated_at'    => now(),
+            ];
+        }
+
+        if (empty($rows)) {
+            return 0;
+        }
+
+        // — bulk upsert inside a transaction to avoid duplicates
+        DB::transaction(function() use ($rows) {
+            DB::table('news')->upsert(
+                $rows,
+                ['url'],                        // conflict key
+                ['title','description','content','updated_at'] // columns to update
+            );
+        });
+
+        return count($rows);
     }
 }
