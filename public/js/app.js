@@ -5593,7 +5593,7 @@ var render = function render() {
     },
     on: {
       click: function click($event) {
-        _vm.exists && _vm.deleteAllNews;
+        _vm.exists && _vm.deleteAllNews();
       }
     }
   }, [_vm._v("Delete All News")])]), _vm._v(" "), !_vm.exists ? _c("div", [_c("div", {

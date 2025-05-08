@@ -30,7 +30,7 @@
                 <button
                   class="btn btn-danger"
                   :disabled="!exists"
-                  @click="exists && deleteAllNews"
+                  @click="exists && deleteAllNews()"
                 >Delete All News</button>
               </div>
   

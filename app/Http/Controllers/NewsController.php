@@ -100,6 +100,12 @@ class NewsController extends Controller
         return response()->json(['message'=>'API key removed']);
     }
 
+    public function deleteAll()
+    {
+        DB::table('news')->truncate();
+        return response()->json(['message'=>'All news deleted']);
+    }
+
     public function generate(Request $request)
     {
         // 1) get stored API key

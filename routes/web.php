@@ -31,6 +31,7 @@ Route::post('/news/api-delete', [App\Http\Controllers\NewsController::class,'api
 Route::post('/news/generate', [App\Http\Controllers\NewsController::class, 'generate'])->name('news.generate')->middleware('auth');
 
 //Routes for deleting all news
+Route::post('/news/delete-all', [App\Http\Controllers\NewsController::class, 'deleteAll'])->name('news.deleteAll')->middleware('auth');
 
 // show grid of all news
 Route::get('/news', [App\Http\Controllers\NewsController::class, 'index'])->name('news.index')->middleware('auth');
